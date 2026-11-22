@@ -544,4 +544,228 @@
   function joinRoom(rawCode) {
     const code = String(rawCode || '').trim().toLowerCase();
     if (code.length !== 4) {
-    
+      $('join-err').textContent = 'Le code fait 4 caractères.';
+      return;
+    }
+    $('join-err').textContent = '';
+    showScreen('wait');
+    $('wait-title').textContent = 'Connexion';
+    $('wait-sub').textContent = 'Recherche de la partie…';
+    $('room-code').textContent = code.toUpperCase();
+    $('wait-status').textContent = 'Établissement du lien…';
+
+    let done = false;
+    try {
+      peer = new Peer({ debug: 0, config: ICE });
+    } catch (e) {
+      $('wait-status').textContent = 'Erreur de connexion au serveur.';
+      return;
+    }
+
+    peer.on('open', function () {
+      conn = peer.connect(PEER_PREFIX + code, { reliable: true });
+      conn.on('open', function () {
+        done = true;
+        myRole = 'guest';
+        state = freshState();
+        placement = newPlacement();
+        opponentLeft = false;
+        previewIndex = -1;
+        $('btn-ready').disabled = true;
+        $('btn-rotate').textContent = '→ Horiz.';
+        showScreen('game');
+        render();
+        renderPlacement();
+        send({ type: 'hello' });
+      });
+      conn.on('data', onData);
+      conn.on('close', onPeerGone);
+      conn.on('error', function (e) { console.warn(e); });
+      setTimeout(function () {
+        if (!done) $('wait-status').textContent = 'Connexion impossible.';
+      }, 15000);
+    });
+
+    peer.on('error', function (err) {
+      if (err.type === 'peer-unavailable') $('wait-status').textContent = 'Aucune partie avec ce code.';
+      else if (err.type === 'network' || err.type === 'server-error') $('wait-status').textContent = 'Serveur injoignable.';
+      else console.warn('Peer error:', err);
+    });
+  }
+
+  function resetAll() {
+    try { if (conn) conn.close(); } catch (e) {}
+    try { if (peer) peer.destroy(); } catch (e) {}
+    conn = null;
+    peer = null;
+    myRole = null;
+    state = null;
+    placement = null;
+    opponentLeft = false;
+    previewIndex = -1;
+  }
+
+  // ----- Événements UI -----
+  const btnCreate = $('btn-create');
+  if (btnCreate) {
+    btnCreate.addEventListener('click', function (e) {
+      e.preventDefault();
+      resetAll();
+      createRoom();
+    });
+  }
+
+  const btnJoinOpen = $('btn-join-open');
+  if (btnJoinOpen) {
+    btnJoinOpen.addEventListener('click', function (e) {
+      e.preventDefault();
+      resetAll();
+      $('code-input').value = '';
+      $('join-err').textContent = '';
+      showScreen('join');
+      setTimeout(function () { $('code-input').focus(); }, 150);
+    });
+  }
+
+  const btnJoinBack = $('btn-join-back');
+  if (btnJoinBack) {
+    btnJoinBack.addEventListener('click', function () { showScreen('menu'); });
+  }
+
+  const btnJoin = $('btn-join');
+  if (btnJoin) {
+    btnJoin.addEventListener('click', function () {
+      joinRoom($('code-input').value);
+    });
+  }
+
+  const codeInput = $('code-input');
+  if (codeInput) {
+    codeInput.addEventListener('input', function (e) {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+    });
+    codeInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        joinRoom(codeInput.value);
+      }
+    });
+  }
+
+  const btnWaitCancel = $('btn-wait-cancel');
+  if (btnWaitCancel) {
+    btnWaitCancel.addEventListener('click', function () {
+      resetAll();
+      showScreen('menu');
+    });
+  }
+
+  const btnRotate = $('btn-rotate');
+  if (btnRotate) {
+    btnRotate.addEventListener('click', function () {
+      if (!placement) return;
+      placement.direction = placement.direction === 'h' ? 'v' : 'h';
+      btnRotate.textContent = placement.direction === 'h' ? '→ Horiz.' : '↓ Vert.';
+      previewIndex = -1;
+      renderPlacement();
+      if (navigator.vibrate) navigator.vibrate(6);
+    });
+  }
+
+  const btnReady = $('btn-ready');
+  if (btnReady) {
+    btnReady.addEventListener('click', function () {
+      if (!placement) return;
+      if (placement.currentIdx < FLEET.length) return;
+
+      const shipsMap = shipsToMap(placement.ships);
+      if (myRole === 'host') {
+        state.hostShips = shipsMap;
+        state.hostReady = true;
+        if (state.guestReady) {
+          state.phase = 'battle';
+          state.turn = 'host';
+        }
+        send({ type: 'state', state: state });
+      } else {
+        state.guestShips = shipsMap;
+        state.guestReady = true;
+        send({ type: 'ready', ships: shipsMap });
+      }
+      btnReady.disabled = true;
+      render();
+    });
+  }
+
+  const btnRestart = $('btn-restart');
+  if (btnRestart) {
+    btnRestart.addEventListener('click', function () {
+      if (!state) return;
+      if (myRole === 'host') {
+        const scores = state.scores;
+        state = freshState();
+        state.scores = scores;
+        placement = newPlacement();
+        $('btn-ready').disabled = true;
+        $('btn-rotate').textContent = '→ Horiz.';
+        opponentLeft = false;
+        previewIndex = -1;
+        send({ type: 'state', state: state });
+        render();
+        renderPlacement();
+      } else {
+        send({ type: 'restart' });
+      }
+    });
+  }
+
+  const btnQuit = $('btn-quit');
+  if (btnQuit) {
+    btnQuit.addEventListener('click', function () {
+      resetAll();
+      showScreen('menu');
+    });
+  }
+
+  // Plateau : tap pour placer / tirer
+  ownGrid.addEventListener('click', function (e) {
+    if (!placement || placement.currentIdx >= FLEET.length) return;
+    const cell = e.target.closest('.bcell');
+    if (!cell) return;
+    placeCurrentShip(Number(cell.dataset.i));
+  });
+
+  enemyGrid.addEventListener('click', function (e) {
+    if (!state || state.phase !== 'battle' || state.turn !== myRole) return;
+    const cell = e.target.closest('.bcell');
+    if (!cell) return;
+    const i = Number(cell.dataset.i);
+    const myShots = myRole === 'host' ? state.hostShots : state.guestShots;
+    if (myShots[i]) return;
+
+    if (myRole === 'host') {
+      const hit = state.guestShips && state.guestShips[i];
+      state.hostShots[i] = hit ? 'hit' : 'miss';
+      if (hit && isFleetDestroyed(state.guestShips, state.hostShots)) {
+        state.phase = 'over';
+        state.winner = 'host';
+        state.scores.host++;
+      } else {
+        state.turn = 'guest';
+      }
+      send({ type: 'state', state: state });
+      render();
+    } else {
+      send({ type: 'fire', index: i });
+    }
+  });
+
+  window.addEventListener('beforeunload', function () {
+    try { if (conn) conn.close(); } catch (e) {}
+  });
+
+  document.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
+})();
+</script>
+</body>
+</html>
