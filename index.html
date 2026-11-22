@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0a0b16">
 <title>Bataille Navale · 2 joueurs en ligne</title>
 <style>
@@ -11,35 +11,38 @@
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:radial-gradient(circle at 30% 0%,#0b1a2e 0%,#04080f 55%);
-    color:#e6f0ff;display:flex;align-items:center;justify-content:center;
+    color:#e6f0ff;display:flex;align-items:flex-start;justify-content:center;
     min-height:100vh;min-height:100dvh;
-    padding:16px 12px calc(16px + env(safe-area-inset-bottom));
     overscroll-behavior:none;
   }
-  .app{width:100%;max-width:440px;display:flex;flex-direction:column}
-  .screen{display:none;flex-direction:column;width:100%}
+  .app{
+    width:100%;max-width:480px;
+    height:100vh;height:100dvh;
+    display:flex;flex-direction:column;
+    padding-top:env(safe-area-inset-top);
+  }
+  .screen{display:none;flex-direction:column;width:100%;height:100%;overflow:hidden}
   .screen.active{display:flex;animation:fade .28s ease}
   @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-  h1{font-size:1.5rem;margin:0 0 6px;text-align:center}
-  .sub{text-align:center;color:#7f9bbd;font-size:.85rem;margin:0 0 18px;line-height:1.45}
+  .menu-content{padding:40px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px}
+  h1{font-size:1.5rem;margin:0;text-align:center}
+  .sub{text-align:center;color:#7f9bbd;font-size:.85rem;margin:0;line-height:1.45}
+  .stack{display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px}
 
   button{font:inherit;font-weight:600;border:none;border-radius:12px;cursor:pointer;
     padding:14px;width:100%;transition:transform .08s,background .15s}
   button:active{transform:scale(.975)}
   button:disabled{opacity:.45;pointer-events:none}
-  .btn-primary{background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;
-    box-shadow:0 10px 24px -8px rgba(14,165,233,.8)}
+  .btn-primary{background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;box-shadow:0 10px 24px -8px rgba(14,165,233,.8)}
   .btn-secondary{background:#102a43;color:#cfe4ff;border:1px solid #1e3a5f}
-  .btn-link{background:none;color:#7f9bbd;font-weight:500;font-size:.85rem;
-    padding:10px;text-decoration:underline;text-underline-offset:3px}
-  .stack{display:flex;flex-direction:column;gap:10px}
+  .btn-link{background:none;color:#7f9bbd;font-weight:500;font-size:.85rem;padding:10px;text-decoration:underline;text-underline-offset:3px}
 
   .code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:2.4rem;
     font-weight:700;letter-spacing:.35em;text-indent:.35em;text-align:center;
     color:#7dd3fc;background:#0d1f33;border:1px solid #1e3a5f;border-radius:16px;
-    padding:20px 10px;margin:6px 0 14px}
-  input{font:inherit;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;width:100%;
+    padding:20px 10px;margin:6px 0 14px;width:100%;max-width:320px}
+  input{font:inherit;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;width:100%;max-width:320px;
     padding:16px;border-radius:14px;background:#0d1f33;border:1.5px solid #1e3a5f;
     color:#e6f0ff;text-align:center;font-size:1.6rem;font-weight:700;
     letter-spacing:.4em;text-indent:.4em;text-transform:uppercase;outline:none}
@@ -47,42 +50,58 @@
   input:focus{border-color:#0ea5e9;box-shadow:0 0 0 4px rgba(14,165,233,.15)}
   .err{color:#fb7185;font-size:.85rem;text-align:center;min-height:1.2em;margin:8px 0 0}
 
-  .status{text-align:center;font-size:.95rem;font-weight:600;padding:12px;
-    border-radius:12px;background:#0d1f33;border:1px solid #1e3a5f;min-height:46px;
-    display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+  /* Écran de jeu : structure fixe, seule la zone centrale défile */
+  #screen-game{padding:0}
+  .topbar{
+    flex-shrink:0;padding:8px 12px;
+    background:#04080f;border-bottom:1px solid #1e3a5f;
+  }
+  .scores{display:flex;gap:8px;margin-bottom:6px}
+  .score{flex:1;text-align:center;background:#0d1f33;border:1px solid #1e3a5f;border-radius:8px;padding:4px}
+  .score .label{font-size:.55rem;color:#7f9bbd;text-transform:uppercase;letter-spacing:.08em}
+  .score .val{font-size:1.1rem;font-weight:700}
+  .status{text-align:center;font-size:.85rem;font-weight:600;padding:8px;border-radius:8px;
+    background:#0d1f33;border:1px solid #1e3a5f;min-height:36px;
+    display:flex;align-items:center;justify-content:center}
 
-  .scores{display:flex;gap:8px;margin-bottom:12px}
-  .score{flex:1;text-align:center;background:#0d1f33;border:1px solid #1e3a5f;
-    border-radius:10px;padding:8px 4px}
-  .score .label{font-size:.6rem;color:#7f9bbd;text-transform:uppercase;
-    letter-spacing:.08em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .score .val{font-size:1.2rem;font-weight:700;margin-top:2px}
+  .game-scroll{
+    flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:12px 12px 100px 12px;
+    overscroll-behavior:contain;
+  }
 
-  /* Grilles */
   .boards{display:flex;flex-direction:column;gap:10px}
   .board-wrap{background:#0a1626;border:1px solid #1e3a5f;border-radius:12px;padding:8px}
   .board-title{font-size:.7rem;color:#7f9bbd;text-transform:uppercase;
-    letter-spacing:.08em;margin-bottom:6px;text-align:center}
+    letter-spacing:.08em;margin-bottom:6px;text-align:center;font-weight:600}
   .board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
     gap:2px;aspect-ratio:1/1;width:100%}
   .bcell{display:flex;align-items:center;justify-content:center;
     background:#132c47;border-radius:3px;font-size:.7rem;font-weight:700;
     color:#4b6f94;user-select:none;-webkit-user-select:none;min-height:0;transition:background .12s}
   .bcell.ship{background:#2563eb;color:#fff}
+  .bcell.preview{background:#22d3ee;opacity:.7}
+  .bcell.invalid{background:#7f1d1d;opacity:.7}
   .bcell.miss{background:#1e3a5f;color:#7f9bbd}
   .bcell.hit{background:#b91c1c;color:#fff}
   .bcell.sunk{background:#7f1d1d;color:#fca5a5}
   .bcell.clickable{cursor:pointer}
   .bcell.clickable:active{background:#1e4d7b}
-  .bcell.prev{outline:2px solid #22d3ee;outline-offset:-2px}
 
-  .fleet{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;justify-content:center}
-  .fleet-item{font-size:.7rem;padding:4px 8px;border-radius:6px;background:#0d1f33;
+  .fleet{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;justify-content:center}
+  .fleet-item{font-size:.65rem;padding:3px 7px;border-radius:6px;background:#0d1f33;
     border:1px solid #1e3a5f;color:#7f9bbd}
   .fleet-item.placed{background:#1e3a5f;color:#7dd3fc;border-color:#0ea5e9}
 
-  .actions{display:flex;gap:8px;margin-top:12px}
-  .actions button{flex:1}
+  .bottom-bar{
+    position:fixed;bottom:0;left:0;right:0;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    background:#04080f;border-top:1px solid #1e3a5f;
+    display:flex;flex-direction:column;gap:6px;
+    max-width:480px;margin:0 auto;
+  }
+  .actions{display:flex;gap:8px}
+  .actions button{flex:1;padding:12px}
 </style>
 </head>
 <body>
@@ -90,64 +109,75 @@
 
   <!-- MENU -->
   <section id="screen-menu" class="screen active">
-    <h1>Bataille Navale</h1>
-    <p class="sub">2 joueurs · 2 téléphones · 0 installation</p>
-    <div class="stack">
-      <button class="btn-primary" id="btn-create">Créer une partie</button>
-      <button class="btn-secondary" id="btn-join-open">Rejoindre une partie</button>
+    <div class="menu-content">
+      <h1>Bataille Navale</h1>
+      <p class="sub">2 joueurs · 2 téléphones · 0 installation</p>
+      <div class="stack">
+        <button class="btn-primary" id="btn-create">Créer une partie</button>
+        <button class="btn-secondary" id="btn-join-open">Rejoindre une partie</button>
+      </div>
     </div>
   </section>
 
   <!-- REJOINDRE -->
   <section id="screen-join" class="screen">
-    <h1>Rejoindre</h1>
-    <p class="sub">Entre le code affiché sur l'autre téléphone</p>
-    <input id="code-input" maxlength="4" placeholder="ABCD"
-           autocapitalize="characters" autocomplete="off" spellcheck="false">
-    <p class="err" id="join-err"></p>
-    <div class="stack">
-      <button class="btn-primary" id="btn-join">Rejoindre</button>
-      <button class="btn-link" id="btn-join-back">Retour</button>
+    <div class="menu-content">
+      <h1>Rejoindre</h1>
+      <p class="sub">Entre le code affiché sur l'autre téléphone</p>
+      <input id="code-input" maxlength="4" placeholder="ABCD"
+             autocapitalize="characters" autocomplete="off" spellcheck="false">
+      <p class="err" id="join-err"></p>
+      <div class="stack">
+        <button class="btn-primary" id="btn-join">Rejoindre</button>
+        <button class="btn-link" id="btn-join-back">Retour</button>
+      </div>
     </div>
   </section>
 
   <!-- ATTENTE -->
   <section id="screen-wait" class="screen">
-    <h1 id="wait-title">Code de la partie</h1>
-    <p class="sub" id="wait-sub">Donne ce code à ton adversaire</p>
-    <div class="code" id="room-code">····</div>
-    <p class="sub" id="wait-status">Connexion au serveur…</p>
-    <button class="btn-link" id="btn-wait-cancel">Annuler</button>
+    <div class="menu-content">
+      <h1 id="wait-title">Code de la partie</h1>
+      <p class="sub" id="wait-sub">Donne ce code à ton adversaire</p>
+      <div class="code" id="room-code">····</div>
+      <p class="sub" id="wait-status">Connexion au serveur…</p>
+      <button class="btn-link" id="btn-wait-cancel">Annuler</button>
+    </div>
   </section>
 
   <!-- JEU -->
   <section id="screen-game" class="screen">
-    <div class="scores">
-      <div class="score"><div class="label">Toi</div><div class="val" id="score-me">0</div></div>
-      <div class="score"><div class="label">Adversaire</div><div class="val" id="score-them">0</div></div>
-    </div>
-    <div class="status" id="status">Synchronisation…</div>
-
-    <div class="boards">
-      <div class="board-wrap">
-        <div class="board-title" id="title-own">Ta grille</div>
-        <div class="board" id="board-own"></div>
+    <div class="topbar">
+      <div class="scores">
+        <div class="score"><div class="label">Toi</div><div class="val" id="score-me">0</div></div>
+        <div class="score"><div class="label">Adversaire</div><div class="val" id="score-them">0</div></div>
       </div>
-      <div class="board-wrap">
-        <div class="board-title" id="title-enemy">Grille adverse</div>
-        <div class="board" id="board-enemy"></div>
+      <div class="status" id="status">Synchronisation…</div>
+    </div>
+
+    <div class="game-scroll">
+      <div class="boards">
+        <div class="board-wrap">
+          <div class="board-title" id="title-own">Ta grille</div>
+          <div class="board" id="board-own"></div>
+        </div>
+        <div class="board-wrap">
+          <div class="board-title" id="title-enemy">Grille adverse</div>
+          <div class="board" id="board-enemy"></div>
+        </div>
       </div>
+      <div class="fleet" id="fleet"></div>
     </div>
 
-    <div class="fleet" id="fleet"></div>
-
-    <div class="actions">
-      <button class="btn-secondary" id="btn-rotate">Tourner</button>
-      <button class="btn-primary" id="btn-ready" disabled>Prêt</button>
-    </div>
-    <div class="stack" style="margin-top:8px">
-      <button class="btn-link" id="btn-restart">Nouvelle manche</button>
-      <button class="btn-link" id="btn-quit">Quitter</button>
+    <div class="bottom-bar">
+      <div class="actions">
+        <button class="btn-secondary" id="btn-rotate">→ Horiz.</button>
+        <button class="btn-primary" id="btn-ready" disabled>Prêt</button>
+      </div>
+      <div class="actions">
+        <button class="btn-link" id="btn-restart">Nouvelle manche</button>
+        <button class="btn-link" id="btn-quit">Quitter</button>
+      </div>
     </div>
   </section>
 
@@ -187,7 +217,7 @@
     for (const k in screens) screens[k].classList.toggle('active', k === name);
   }
 
-  // Grilles : création des 64 cellules
+  // Grilles
   const ownGrid = $('board-own'), enemyGrid = $('board-enemy');
   const ownCells = [], enemyCells = [];
   for (let i = 0; i < 64; i++) {
@@ -197,24 +227,23 @@
     enemyGrid.appendChild(c2); enemyCells.push(c2);
   }
 
-  // État global
   let peer = null, conn = null;
-  let myRole = null;        // 'host' | 'guest'
+  let myRole = null;
   let state = null;
-  let placement = null;     // { ships: [], currentIdx, direction }
+  let placement = null;
   let opponentLeft = false;
+  let previewIndex = -1;
 
-  // ---------- État de la partie ----------
   function freshState() {
     return {
-      phase: 'placement',        // 'placement' | 'battle' | 'over'
-      turn: 'host',              // qui tire : 'host' ou 'guest'
+      phase: 'placement',
+      turn: 'host',
       hostReady: false,
       guestReady: false,
-      hostShips: null,           // { [index]: true }
+      hostShips: null,
       guestShips: null,
-      hostShots: {},             // { index: 'hit'|'miss' } tirs du host sur guest
-      guestShots: {},            // tirs du guest sur host
+      hostShots: {},
+      guestShots: {},
       winner: null,
       scores: { host: 0, guest: 0 }
     };
@@ -224,7 +253,6 @@
     return { ships: [], currentIdx: 0, direction: 'h' };
   }
 
-  // ---------- Placement ----------
   function canPlace(ships, startIdx, size, dir) {
     const r = Math.floor(startIdx / SIZE), c = startIdx % SIZE;
     if (dir === 'h' && c + size > SIZE) return false;
@@ -253,14 +281,7 @@
     if (placement.currentIdx >= FLEET.length) {
       $('btn-ready').disabled = false;
     }
-    renderPlacement();
-  }
-
-  function removeLastShip() {
-    if (!placement || placement.ships.length === 0) return;
-    placement.ships.pop();
-    placement.currentIdx--;
-    $('btn-ready').disabled = true;
+    previewIndex = -1;
     renderPlacement();
   }
 
@@ -270,16 +291,13 @@
     return m;
   }
 
-  // ---------- Rendu ----------
   function render() {
     if (!state) return;
-
     const myShots = myRole === 'host' ? state.hostShots : state.guestShots;
     const enemyShots = myRole === 'host' ? state.guestShots : state.hostShots;
     const myShips = myRole === 'host' ? state.hostShips : state.guestShips;
     const enemyShips = myRole === 'host' ? state.guestShips : state.hostShips;
 
-    // Grille perso : on voit ses bateaux + les tirs reçus
     for (let i = 0; i < 64; i++) {
       const c = ownCells[i];
       c.className = 'bcell';
@@ -290,7 +308,6 @@
       }
     }
 
-    // Grille adverse : on ne voit que les tirs envoyés
     for (let i = 0; i < 64; i++) {
       const c = enemyCells[i];
       c.className = 'bcell';
@@ -301,39 +318,46 @@
       if (state.phase === 'over' && enemyShips && enemyShips[i]) c.classList.add('sunk');
     }
 
-    // Statut
     const statusEl = $('status');
     if (opponentLeft) statusEl.textContent = 'Adversaire déconnecté 😕';
     else if (state.phase === 'placement') {
       const myReady = myRole === 'host' ? state.hostReady : state.guestReady;
-      statusEl.textContent = myReady ? "En attente de l'adversaire…" : 'Place tes bateaux';
+      const otherReady = myRole === 'host' ? state.guestReady : state.hostReady;
+      if (myReady && otherReady) statusEl.textContent = 'Démarrage...';
+      else if (myReady) statusEl.textContent = "En attente de l'adversaire…";
+      else statusEl.textContent = 'Place tes bateaux';
     } else if (state.phase === 'battle') {
       statusEl.textContent = state.turn === myRole ? 'À toi de tirer !' : "Au tour de l'adversaire…";
     } else if (state.phase === 'over') {
       statusEl.textContent = state.winner === myRole ? 'Tu as gagné ! 🎉' : 'Tu as perdu 😅';
     }
 
-    // Scores
     $('score-me').textContent = state.scores[myRole] || 0;
     $('score-them').textContent = state.scores[myRole === 'host' ? 'guest' : 'host'] || 0;
 
-    // Flotte
     renderFleet();
-
-    // Titres
-    $('title-own').textContent = 'Ta grille';
-    $('title-enemy').textContent = 'Grille adverse';
   }
 
   function renderPlacement() {
     if (!placement) return;
-
-    // Effacer tous les bateaux affichés
-    for (let i = 0; i < 64; i++) ownCells[i].classList.remove('ship');
-
-    // Afficher les bateaux placés
+    for (let i = 0; i < 64; i++) ownCells[i].classList.remove('ship', 'preview', 'invalid');
     for (const s of placement.ships) {
       for (const c of s.cells) ownCells[c].classList.add('ship');
+    }
+    // Aperçu du prochain bateau
+    if (placement.currentIdx < FLEET.length && previewIndex >= 0) {
+      const shipDef = FLEET[placement.currentIdx];
+      const ok = canPlace(placement.ships, previewIndex, shipDef.size, placement.direction);
+      for (let k = 0; k < shipDef.size; k++) {
+        const idx = placement.direction === 'h' ? previewIndex + k : previewIndex + k * SIZE;
+        if (idx >= 0 && idx < 64) {
+          // Vérifier qu'on ne sort pas de la ligne/colonne
+          const r = Math.floor(previewIndex / SIZE), c = previewIndex % SIZE;
+          if (placement.direction === 'h' && c + k >= SIZE) continue;
+          if (placement.direction === 'v' && r + k >= SIZE) continue;
+          ownCells[idx].classList.add(ok ? 'preview' : 'invalid');
+        }
+      }
     }
   }
 
@@ -349,7 +373,23 @@
     });
   }
 
-  // ---------- Placement : interaction ----------
+  // Preview au survol/touch
+  ownGrid.addEventListener('pointermove', function (e) {
+    if (!placement || placement.currentIdx >= FLEET.length) return;
+    if (placement.ships.length === 0 && previewIndex === -1) return;
+    const cell = e.target.closest('.bcell');
+    if (!cell) return;
+    const i = Number(cell.dataset.i);
+    if (i === previewIndex) return;
+    previewIndex = i;
+    renderPlacement();
+  });
+
+  ownGrid.addEventListener('pointerleave', function () {
+    previewIndex = -1;
+    renderPlacement();
+  });
+
   ownGrid.addEventListener('click', function (e) {
     if (!placement || placement.currentIdx >= FLEET.length) return;
     const cell = e.target.closest('.bcell');
@@ -360,27 +400,38 @@
   $('btn-rotate').addEventListener('click', function () {
     if (!placement) return;
     placement.direction = placement.direction === 'h' ? 'v' : 'h';
-    $('btn-rotate').textContent = placement.direction === 'h' ? 'Tourner' : 'Tourner';
+    $('btn-rotate').textContent = placement.direction === 'h' ? '→ Horiz.' : '↓ Vert.';
+    previewIndex = -1;
+    renderPlacement();
     if (navigator.vibrate) navigator.vibrate(6);
   });
 
+  // Bouton Prêt : correction du blocage
   $('btn-ready').addEventListener('click', function () {
+    if (!placement) return;
+    if (placement.currentIdx < FLEET.length) return;
+
+    const shipsMap = shipsToMap(placement.ships);
     if (myRole === 'host') {
-      state.hostShips = shipsToMap(placement.ships);
+      state.hostShips = shipsMap;
       state.hostReady = true;
-      if (state.guestReady) state.phase = 'battle';
+      if (state.guestReady) {
+        state.phase = 'battle';
+        state.turn = 'host';
+      }
     } else {
-      state.guestShips = shipsToMap(placement.ships);
+      state.guestShips = shipsMap;
       state.guestReady = true;
-      if (state.hostReady) state.phase = 'battle';
+      // L'invité envoie son état à l'hôte
+      send({ type: 'ready', ships: shipsMap });
     }
-    if (state.phase === 'battle') state.turn = 'host';
-    send({ type: 'state', state: state });
+
     $('btn-ready').disabled = true;
     render();
+    // Si hôte, on informe immédiatement l'invité
+    if (myRole === 'host') send({ type: 'state', state: state });
   });
 
-  // ---------- Tirs ----------
   enemyGrid.addEventListener('click', function (e) {
     if (state.phase !== 'battle' || state.turn !== myRole) return;
     const cell = e.target.closest('.bcell');
@@ -395,12 +446,11 @@
       if (hit && isFleetDestroyed(state.guestShips, state.hostShots)) {
         state.phase = 'over'; state.winner = 'host'; state.scores.host++;
       } else state.turn = 'guest';
+      send({ type: 'state', state: state });
+      render();
     } else {
       send({ type: 'fire', index: i });
-      return;
     }
-    send({ type: 'state', state: state });
-    render();
   });
 
   function isFleetDestroyed(shipMap, shots) {
@@ -409,7 +459,6 @@
     return true;
   }
 
-  // ---------- Messagerie ----------
   function send(msg) {
     if (conn && conn.open) {
       try { conn.send(msg); } catch (e) { console.warn(e); }
@@ -424,7 +473,10 @@
       else if (msg.type === 'ready') {
         state.guestShips = msg.ships;
         state.guestReady = true;
-        if (state.hostReady) { state.phase = 'battle'; state.turn = 'host'; }
+        if (state.hostReady) {
+          state.phase = 'battle';
+          state.turn = 'host';
+        }
         send({ type: 'state', state: state });
         render();
       } else if (msg.type === 'fire') {
@@ -444,10 +496,10 @@
         state.scores = scores;
         placement = newPlacement();
         $('btn-ready').disabled = true;
+        $('btn-rotate').textContent = '→ Horiz.';
         opponentLeft = false;
         send({ type: 'state', state: state });
-        render();
-        renderPlacement();
+        render(); renderPlacement();
       }
     } else {
       if (msg.type === 'state' && msg.state) {
@@ -461,7 +513,6 @@
     }
   }
 
-  // ---------- Connexion ----------
   function onPeerGone() {
     conn = null; opponentLeft = true; render();
   }
@@ -471,142 +522,4 @@
     conn = c;
     conn.on('open', function () {
       myRole = 'host';
-      state = freshState();
-      placement = newPlacement();
-      opponentLeft = false;
-      $('btn-ready').disabled = true;
-      show('game');
-      render(); renderPlacement();
-      send({ type: 'state', state: state });
-    });
-    conn.on('data', onData);
-    conn.on('close', onPeerGone);
-    conn.on('error', function (e) { console.warn(e); });
-  }
-
-  function createRoom() {
-    show('wait');
-    $('wait-title').textContent = 'Code de la partie';
-    $('wait-sub').textContent = "Donne ce code à ton adversaire";
-    $('room-code').textContent = '····';
-    $('wait-status').textContent = 'Connexion au serveur…';
-
-    let attempt = 0;
-    (function tryCreate() {
-      attempt++;
-      if (attempt > 6) { $('wait-status').textContent = 'Connexion impossible.'; return; }
-      const code = randomCode();
-      const p = new Peer(PEER_PREFIX + code, { debug: 0, config: ICE });
-      let opened = false, dead = false;
-      p.on('open', function () {
-        if (dead) return;
-        opened = true; peer = p;
-        $('room-code').textContent = code.toUpperCase();
-        $('wait-status').textContent = "En attente de l'adversaire…";
-        p.on('connection', onIncoming);
-      });
-      p.on('error', function (err) {
-        if (opened || dead) { console.warn('Peer error:', err); return; }
-        dead = true;
-        try { p.destroy(); } catch (e) {}
-        setTimeout(tryCreate, 400);
-      });
-      setTimeout(function () {
-        if (!opened && !dead) { dead = true; $('wait-status').textContent = 'Serveur muet.'; }
-      }, 12000);
-    })();
-  }
-
-  function joinRoom(rawCode) {
-    const code = String(rawCode || '').trim().toLowerCase();
-    if (code.length !== 4) { $('join-err').textContent = 'Le code fait 4 caractères.'; return; }
-    $('join-err').textContent = '';
-    show('wait');
-    $('wait-title').textContent = 'Connexion';
-    $('wait-sub').textContent = 'Recherche de la partie…';
-    $('room-code').textContent = code.toUpperCase();
-    $('wait-status').textContent = 'Établissement du lien…';
-
-    peer = new Peer({ debug: 0, config: ICE });
-    let done = false;
-
-    peer.on('open', function () {
-      conn = peer.connect(PEER_PREFIX + code, { reliable: true });
-      conn.on('open', function () {
-        done = true;
-        myRole = 'guest';
-        state = freshState();
-        placement = newPlacement();
-        opponentLeft = false;
-        $('btn-ready').disabled = true;
-        show('game');
-        render(); renderPlacement();
-        send({ type: 'hello' });
-      });
-      conn.on('data', onData);
-      conn.on('close', onPeerGone);
-      conn.on('error', function (e) { console.warn(e); });
-      setTimeout(function () {
-        if (!done) $('wait-status').textContent = "Connexion impossible.";
-      }, 15000);
-    });
-
-    peer.on('error', function (err) {
-      if (err.type === 'peer-unavailable') $('wait-status').textContent = 'Aucune partie avec ce code.';
-      else if (err.type === 'network' || err.type === 'server-error') $('wait-status').textContent = 'Serveur injoignable.';
-    });
-  }
-
-  function randomCode() {
-    let s = '';
-    for (let i = 0; i < 4; i++) s += LETTERS[Math.floor(Math.random() * LETTERS.length)];
-    return s;
-  }
-
-  function resetAll() {
-    try { if (conn) conn.close(); } catch (e) {}
-    try { if (peer) peer.destroy(); } catch (e) {}
-    conn = null; peer = null; myRole = null; state = null; placement = null; opponentLeft = false;
-  }
-
-  // ---------- Boutons ----------
-  $('btn-create').addEventListener('click', function () { resetAll(); createRoom(); });
-  $('btn-join-open').addEventListener('click', function () {
-    resetAll(); $('code-input').value = ''; $('join-err').textContent = ''; show('join');
-    setTimeout(function () { $('code-input').focus(); }, 150);
-  });
-  $('btn-join-back').addEventListener('click', function () { show('menu'); });
-  $('btn-join').addEventListener('click', function () { joinRoom($('code-input').value); });
-
-  const codeInput = $('code-input');
-  codeInput.addEventListener('input', function (e) {
-    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
-  });
-  codeInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); joinRoom(codeInput.value); }
-  });
-
-  $('btn-wait-cancel').addEventListener('click', function () { resetAll(); show('menu'); });
-  $('btn-restart').addEventListener('click', function () {
-    if (myRole === 'host') {
-      const scores = state.scores;
-      state = freshState();
-      state.scores = scores;
-      placement = newPlacement();
-      $('btn-ready').disabled = true;
-      opponentLeft = false;
-      send({ type: 'state', state: state });
-      render(); renderPlacement();
-    } else {
-      send({ type: 'restart' });
-    }
-  });
-  $('btn-quit').addEventListener('click', function () { resetAll(); show('menu'); });
-  window.addEventListener('beforeunload', function () { try { if (conn) conn.close(); } catch (e) {} });
-
-  // Empêche le double-tap zoom sur mobile
-  document.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
-})();
-</script>
-</body>
-</html>
+      sta
