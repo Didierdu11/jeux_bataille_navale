@@ -1,0 +1,11 @@
+{
+  "name": "Bataille Navale",
+  "short_name": "Bataille Navale",
+  "description": "Bataille navale à 2 téléphones, sans installation.",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#08121b",
+  "theme_color": "#08121b",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
