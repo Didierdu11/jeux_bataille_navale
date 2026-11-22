@@ -89,8 +89,12 @@
 
   .fleet{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;justify-content:center}
   .fleet-item{font-size:.65rem;padding:3px 7px;border-radius:6px;background:#0d1f33;
-    border:1px solid #1e3a5f;color:#7f9bbd}
+    border:1px solid #1e3a5f;color:#7f9bbd;cursor:pointer;
+    transition:background .15s,border-color .15s,transform .08s}
+  .fleet-item:active{transform:scale(.95)}
   .fleet-item.placed{background:#1e3a5f;color:#7dd3fc;border-color:#0ea5e9}
+  .fleet-item.selected{background:#1e4d7b;color:#7dd3fc;border-color:#22d3ee;box-shadow:0 0 0 2px #22d3ee}
+  .fleet-item.selected::after{content:" ✓"}
 
   .bottom-bar{
     position:fixed;bottom:0;left:0;right:0;
@@ -183,7 +187,6 @@
 (function () {
   'use strict';
 
-  // ----- Constantes -----
   const PEER_PREFIX = 'bataillenavale-';
   const ICE = {
     iceServers: [
@@ -204,19 +207,16 @@
     { name: 'Torpilleur', size: 2 }
   ];
 
-  // ----- Helpers -----
   const $ = id => document.getElementById(id);
 
-  // ----- État global -----
   let peer = null;
   let conn = null;
-  let myRole = null;      // 'host' | 'guest'
-  let state = null;       // état du jeu
-  let placement = null;   // placement des bateaux
+  let myRole = null;
+  let state = null;
+  let placement = null;
   let opponentLeft = false;
   let previewIndex = -1;
 
-  // ----- Références DOM -----
   const screens = {
     menu: $('screen-menu'),
     join: $('screen-join'),
@@ -230,7 +230,6 @@
     }
   }
 
-  // ----- Création des grilles -----
   const ownGrid = $('board-own');
   const enemyGrid = $('board-enemy');
   const ownCells = [];
@@ -250,7 +249,6 @@
     enemyCells.push(c2);
   }
 
-  // ----- État du jeu -----
   function freshState() {
     return {
       phase: 'placement',
@@ -267,10 +265,9 @@
   }
 
   function newPlacement() {
-    return { ships: [], currentIdx: 0, direction: 'h' };
+    return { ships: [], currentIdx: 0, direction: 'h', selected: 0 };
   }
 
-  // ----- Placement -----
   function canPlace(ships, startIdx, size, dir) {
     const r = Math.floor(startIdx / SIZE);
     const c = startIdx % SIZE;
@@ -285,23 +282,42 @@
     return true;
   }
 
-  function placeCurrentShip(startIdx) {
+  function getShipDefByIndex(idx) {
+    return FLEET[idx] || null;
+  }
+
+  function isShipPlaced(idx) {
+    return placement && placement.ships.some(s => s.fleetIndex === idx);
+  }
+
+  function placeSelectedShip(startIdx) {
     if (!placement) return;
-    const shipDef = FLEET[placement.currentIdx];
+    const idx = placement.selected;
+    const shipDef = getShipDefByIndex(idx);
     if (!shipDef) return;
+    if (isShipPlaced(idx)) return;
     if (!canPlace(placement.ships, startIdx, shipDef.size, placement.direction)) return;
 
     const cells = [];
     for (let k = 0; k < shipDef.size; k++) {
       cells.push(placement.direction === 'h' ? startIdx + k : startIdx + k * SIZE);
     }
-    placement.ships.push({ name: shipDef.name, size: shipDef.size, cells });
-    placement.currentIdx++;
-    if (placement.currentIdx >= FLEET.length) {
-      $('btn-ready').disabled = false;
-    }
+    placement.ships.push({
+      name: shipDef.name,
+      size: shipDef.size,
+      fleetIndex: idx,
+      cells
+    });
+
+    const next = FLEET.findIndex((f, i) => !isShipPlaced(i));
+    placement.selected = next >= 0 ? next : -1;
+
+    const allPlaced = FLEET.every((f, i) => isShipPlaced(i));
+    $('btn-ready').disabled = !allPlaced;
+
     previewIndex = -1;
     renderPlacement();
+    renderFleet();
   }
 
   function shipsToMap(ships) {
@@ -310,7 +326,6 @@
     return m;
   }
 
-  // ----- Rendu -----
   function render() {
     if (!state) return;
 
@@ -367,8 +382,9 @@
     for (const s of placement.ships) {
       for (const c of s.cells) ownCells[c].classList.add('ship');
     }
-    if (placement.currentIdx < FLEET.length && previewIndex >= 0) {
-      const shipDef = FLEET[placement.currentIdx];
+    const selIdx = placement.selected;
+    if (selIdx >= 0 && selIdx < FLEET.length && !isShipPlaced(selIdx) && previewIndex >= 0) {
+      const shipDef = FLEET[selIdx];
       const ok = canPlace(placement.ships, previewIndex, shipDef.size, placement.direction);
       for (let k = 0; k < shipDef.size; k++) {
         const idx = placement.direction === 'h' ? previewIndex + k : previewIndex + k * SIZE;
@@ -385,16 +401,26 @@
   function renderFleet() {
     const el = $('fleet');
     el.innerHTML = '';
-    const placed = placement ? placement.ships.length : 0;
     FLEET.forEach((f, idx) => {
       const d = document.createElement('div');
-      d.className = 'fleet-item' + (idx < placed ? ' placed' : '');
+      const placed = isShipPlaced(idx);
+      d.className = 'fleet-item' + (placed ? ' placed' : '') +
+                    (!placed && placement && placement.selected === idx ? ' selected' : '');
       d.textContent = f.name + ' (' + f.size + ')';
+      d.dataset.idx = idx;
+      d.addEventListener('click', function () {
+        if (isShipPlaced(idx)) return;
+        if (!placement) return;
+        placement.selected = idx;
+        previewIndex = -1;
+        renderFleet();
+        renderPlacement();
+        if (navigator.vibrate) navigator.vibrate(6);
+      });
       el.appendChild(d);
     });
   }
 
-  // ----- Réseau -----
   function send(msg) {
     if (conn && conn.open) {
       try { conn.send(msg); } catch (e) { console.warn(e); }
@@ -443,6 +469,7 @@
         send({ type: 'state', state: state });
         render();
         renderPlacement();
+        renderFleet();
       }
     } else {
       if (msg.type === 'state' && msg.state) {
@@ -475,6 +502,7 @@
       myRole = 'host';
       state = freshState();
       placement = newPlacement();
+      placement.selected = 0;
       opponentLeft = false;
       previewIndex = -1;
       $('btn-ready').disabled = true;
@@ -482,6 +510,7 @@
       showScreen('game');
       render();
       renderPlacement();
+      renderFleet();
       send({ type: 'state', state: state });
     });
     conn.on('data', onData);
@@ -569,6 +598,7 @@
         myRole = 'guest';
         state = freshState();
         placement = newPlacement();
+        placement.selected = 0;
         opponentLeft = false;
         previewIndex = -1;
         $('btn-ready').disabled = true;
@@ -576,6 +606,7 @@
         showScreen('game');
         render();
         renderPlacement();
+        renderFleet();
         send({ type: 'hello' });
       });
       conn.on('data', onData);
@@ -605,7 +636,6 @@
     previewIndex = -1;
   }
 
-  // ----- Événements UI -----
   const btnCreate = $('btn-create');
   if (btnCreate) {
     btnCreate.addEventListener('click', function (e) {
@@ -706,6 +736,7 @@
         state = freshState();
         state.scores = scores;
         placement = newPlacement();
+        placement.selected = 0;
         $('btn-ready').disabled = true;
         $('btn-rotate').textContent = '→ Horiz.';
         opponentLeft = false;
@@ -713,6 +744,7 @@
         send({ type: 'state', state: state });
         render();
         renderPlacement();
+        renderFleet();
       } else {
         send({ type: 'restart' });
       }
@@ -727,12 +759,26 @@
     });
   }
 
-  // Plateau : tap pour placer / tirer
-  ownGrid.addEventListener('click', function (e) {
-    if (!placement || placement.currentIdx >= FLEET.length) return;
+  ownGrid.addEventListener('pointermove', function (e) {
+    if (!placement || placement.selected < 0) return;
     const cell = e.target.closest('.bcell');
     if (!cell) return;
-    placeCurrentShip(Number(cell.dataset.i));
+    const i = Number(cell.dataset.i);
+    if (i === previewIndex) return;
+    previewIndex = i;
+    renderPlacement();
+  });
+
+  ownGrid.addEventListener('pointerleave', function () {
+    previewIndex = -1;
+    renderPlacement();
+  });
+
+  ownGrid.addEventListener('click', function (e) {
+    if (!placement || placement.selected < 0) return;
+    const cell = e.target.closest('.bcell');
+    if (!cell) return;
+    placeSelectedShip(Number(cell.dataset.i));
   });
 
   enemyGrid.addEventListener('click', function (e) {
