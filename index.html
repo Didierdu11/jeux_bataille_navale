@@ -50,7 +50,6 @@
   input:focus{border-color:#0ea5e9;box-shadow:0 0 0 4px rgba(14,165,233,.15)}
   .err{color:#fb7185;font-size:.85rem;text-align:center;min-height:1.2em;margin:8px 0 0}
 
-  /* Écran de jeu : structure fixe, seule la zone centrale défile */
   #screen-game{padding:0}
   .topbar{
     flex-shrink:0;padding:8px 12px;
@@ -66,7 +65,7 @@
 
   .game-scroll{
     flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
-    padding:12px 12px 100px 12px;
+    padding:12px 12px 120px 12px;
     overscroll-behavior:contain;
   }
 
@@ -98,7 +97,7 @@
     padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     background:#04080f;border-top:1px solid #1e3a5f;
     display:flex;flex-direction:column;gap:6px;
-    max-width:480px;margin:0 auto;
+    max-width:480px;margin:0 auto;z-index:10;
   }
   .actions{display:flex;gap:8px}
   .actions button{flex:1;padding:12px}
@@ -107,19 +106,17 @@
 <body>
 <div class="app">
 
-  <!-- MENU -->
   <section id="screen-menu" class="screen active">
     <div class="menu-content">
       <h1>Bataille Navale</h1>
       <p class="sub">2 joueurs · 2 téléphones · 0 installation</p>
       <div class="stack">
-        <button class="btn-primary" id="btn-create">Créer une partie</button>
-        <button class="btn-secondary" id="btn-join-open">Rejoindre une partie</button>
+        <button class="btn-primary" id="btn-create" type="button">Créer une partie</button>
+        <button class="btn-secondary" id="btn-join-open" type="button">Rejoindre une partie</button>
       </div>
     </div>
   </section>
 
-  <!-- REJOINDRE -->
   <section id="screen-join" class="screen">
     <div class="menu-content">
       <h1>Rejoindre</h1>
@@ -128,24 +125,22 @@
              autocapitalize="characters" autocomplete="off" spellcheck="false">
       <p class="err" id="join-err"></p>
       <div class="stack">
-        <button class="btn-primary" id="btn-join">Rejoindre</button>
-        <button class="btn-link" id="btn-join-back">Retour</button>
+        <button class="btn-primary" id="btn-join" type="button">Rejoindre</button>
+        <button class="btn-link" id="btn-join-back" type="button">Retour</button>
       </div>
     </div>
   </section>
 
-  <!-- ATTENTE -->
   <section id="screen-wait" class="screen">
     <div class="menu-content">
       <h1 id="wait-title">Code de la partie</h1>
       <p class="sub" id="wait-sub">Donne ce code à ton adversaire</p>
       <div class="code" id="room-code">····</div>
       <p class="sub" id="wait-status">Connexion au serveur…</p>
-      <button class="btn-link" id="btn-wait-cancel">Annuler</button>
+      <button class="btn-link" id="btn-wait-cancel" type="button">Annuler</button>
     </div>
   </section>
 
-  <!-- JEU -->
   <section id="screen-game" class="screen">
     <div class="topbar">
       <div class="scores">
@@ -171,12 +166,12 @@
 
     <div class="bottom-bar">
       <div class="actions">
-        <button class="btn-secondary" id="btn-rotate">→ Horiz.</button>
-        <button class="btn-primary" id="btn-ready" disabled>Prêt</button>
+        <button class="btn-secondary" id="btn-rotate" type="button">→ Horiz.</button>
+        <button class="btn-primary" id="btn-ready" type="button" disabled>Prêt</button>
       </div>
       <div class="actions">
-        <button class="btn-link" id="btn-restart">Nouvelle manche</button>
-        <button class="btn-link" id="btn-quit">Quitter</button>
+        <button class="btn-link" id="btn-restart" type="button">Nouvelle manche</button>
+        <button class="btn-link" id="btn-quit" type="button">Quitter</button>
       </div>
     </div>
   </section>
@@ -188,6 +183,7 @@
 (function () {
   'use strict';
 
+  // ----- Constantes -----
   const PEER_PREFIX = 'bataillenavale-';
   const ICE = {
     iceServers: [
@@ -208,32 +204,53 @@
     { name: 'Torpilleur', size: 2 }
   ];
 
+  // ----- Helpers -----
   const $ = id => document.getElementById(id);
-  const screens = {
-    menu: $('screen-menu'), join: $('screen-join'),
-    wait: $('screen-wait'), game: $('screen-game')
-  };
-  function show(name) {
-    for (const k in screens) screens[k].classList.toggle('active', k === name);
-  }
 
-  // Grilles
-  const ownGrid = $('board-own'), enemyGrid = $('board-enemy');
-  const ownCells = [], enemyCells = [];
-  for (let i = 0; i < 64; i++) {
-    const c1 = document.createElement('div'); c1.className = 'bcell'; c1.dataset.i = i;
-    ownGrid.appendChild(c1); ownCells.push(c1);
-    const c2 = document.createElement('div'); c2.className = 'bcell'; c2.dataset.i = i;
-    enemyGrid.appendChild(c2); enemyCells.push(c2);
-  }
-
-  let peer = null, conn = null;
-  let myRole = null;
-  let state = null;
-  let placement = null;
+  // ----- État global -----
+  let peer = null;
+  let conn = null;
+  let myRole = null;      // 'host' | 'guest'
+  let state = null;       // état du jeu
+  let placement = null;   // placement des bateaux
   let opponentLeft = false;
   let previewIndex = -1;
 
+  // ----- Références DOM -----
+  const screens = {
+    menu: $('screen-menu'),
+    join: $('screen-join'),
+    wait: $('screen-wait'),
+    game: $('screen-game')
+  };
+
+  function showScreen(name) {
+    for (const k in screens) {
+      if (screens[k]) screens[k].classList.toggle('active', k === name);
+    }
+  }
+
+  // ----- Création des grilles -----
+  const ownGrid = $('board-own');
+  const enemyGrid = $('board-enemy');
+  const ownCells = [];
+  const enemyCells = [];
+
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    const c1 = document.createElement('div');
+    c1.className = 'bcell';
+    c1.dataset.i = String(i);
+    ownGrid.appendChild(c1);
+    ownCells.push(c1);
+
+    const c2 = document.createElement('div');
+    c2.className = 'bcell';
+    c2.dataset.i = String(i);
+    enemyGrid.appendChild(c2);
+    enemyCells.push(c2);
+  }
+
+  // ----- État du jeu -----
   function freshState() {
     return {
       phase: 'placement',
@@ -253,12 +270,14 @@
     return { ships: [], currentIdx: 0, direction: 'h' };
   }
 
+  // ----- Placement -----
   function canPlace(ships, startIdx, size, dir) {
-    const r = Math.floor(startIdx / SIZE), c = startIdx % SIZE;
+    const r = Math.floor(startIdx / SIZE);
+    const c = startIdx % SIZE;
     if (dir === 'h' && c + size > SIZE) return false;
     if (dir === 'v' && r + size > SIZE) return false;
     const occupied = new Set();
-    for (const s of ships) for (const i of s.cells) occupied.add(i);
+    for (const s of ships) for (const idx of s.cells) occupied.add(idx);
     for (let k = 0; k < size; k++) {
       const idx = dir === 'h' ? startIdx + k : startIdx + k * SIZE;
       if (occupied.has(idx)) return false;
@@ -291,14 +310,16 @@
     return m;
   }
 
+  // ----- Rendu -----
   function render() {
     if (!state) return;
+
     const myShots = myRole === 'host' ? state.hostShots : state.guestShots;
     const enemyShots = myRole === 'host' ? state.guestShots : state.hostShots;
     const myShips = myRole === 'host' ? state.hostShips : state.guestShips;
     const enemyShips = myRole === 'host' ? state.guestShips : state.hostShips;
 
-    for (let i = 0; i < 64; i++) {
+    for (let i = 0; i < SIZE * SIZE; i++) {
       const c = ownCells[i];
       c.className = 'bcell';
       if (myShips && myShips[i]) c.classList.add('ship');
@@ -308,7 +329,7 @@
       }
     }
 
-    for (let i = 0; i < 64; i++) {
+    for (let i = 0; i < SIZE * SIZE; i++) {
       const c = enemyCells[i];
       c.className = 'bcell';
       if (myShots[i]) c.classList.add(myShots[i] === 'hit' ? 'hit' : 'miss');
@@ -319,8 +340,9 @@
     }
 
     const statusEl = $('status');
-    if (opponentLeft) statusEl.textContent = 'Adversaire déconnecté 😕';
-    else if (state.phase === 'placement') {
+    if (opponentLeft) {
+      statusEl.textContent = 'Adversaire déconnecté 😕';
+    } else if (state.phase === 'placement') {
       const myReady = myRole === 'host' ? state.hostReady : state.guestReady;
       const otherReady = myRole === 'host' ? state.guestReady : state.hostReady;
       if (myReady && otherReady) statusEl.textContent = 'Démarrage...';
@@ -334,29 +356,28 @@
 
     $('score-me').textContent = state.scores[myRole] || 0;
     $('score-them').textContent = state.scores[myRole === 'host' ? 'guest' : 'host'] || 0;
-
     renderFleet();
   }
 
   function renderPlacement() {
     if (!placement) return;
-    for (let i = 0; i < 64; i++) ownCells[i].classList.remove('ship', 'preview', 'invalid');
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      ownCells[i].classList.remove('ship', 'preview', 'invalid');
+    }
     for (const s of placement.ships) {
       for (const c of s.cells) ownCells[c].classList.add('ship');
     }
-    // Aperçu du prochain bateau
     if (placement.currentIdx < FLEET.length && previewIndex >= 0) {
       const shipDef = FLEET[placement.currentIdx];
       const ok = canPlace(placement.ships, previewIndex, shipDef.size, placement.direction);
       for (let k = 0; k < shipDef.size; k++) {
         const idx = placement.direction === 'h' ? previewIndex + k : previewIndex + k * SIZE;
-        if (idx >= 0 && idx < 64) {
-          // Vérifier qu'on ne sort pas de la ligne/colonne
-          const r = Math.floor(previewIndex / SIZE), c = previewIndex % SIZE;
-          if (placement.direction === 'h' && c + k >= SIZE) continue;
-          if (placement.direction === 'v' && r + k >= SIZE) continue;
-          ownCells[idx].classList.add(ok ? 'preview' : 'invalid');
-        }
+        if (idx < 0 || idx >= SIZE * SIZE) continue;
+        const r = Math.floor(previewIndex / SIZE);
+        const c = previewIndex % SIZE;
+        if (placement.direction === 'h' && c + k >= SIZE) continue;
+        if (placement.direction === 'v' && r + k >= SIZE) continue;
+        ownCells[idx].classList.add(ok ? 'preview' : 'invalid');
       }
     }
   }
@@ -364,101 +385,16 @@
   function renderFleet() {
     const el = $('fleet');
     el.innerHTML = '';
-    const placedCount = placement ? placement.ships.length : 0;
+    const placed = placement ? placement.ships.length : 0;
     FLEET.forEach((f, idx) => {
       const d = document.createElement('div');
-      d.className = 'fleet-item' + (idx < placedCount ? ' placed' : '');
+      d.className = 'fleet-item' + (idx < placed ? ' placed' : '');
       d.textContent = f.name + ' (' + f.size + ')';
       el.appendChild(d);
     });
   }
 
-  // Preview au survol/touch
-  ownGrid.addEventListener('pointermove', function (e) {
-    if (!placement || placement.currentIdx >= FLEET.length) return;
-    if (placement.ships.length === 0 && previewIndex === -1) return;
-    const cell = e.target.closest('.bcell');
-    if (!cell) return;
-    const i = Number(cell.dataset.i);
-    if (i === previewIndex) return;
-    previewIndex = i;
-    renderPlacement();
-  });
-
-  ownGrid.addEventListener('pointerleave', function () {
-    previewIndex = -1;
-    renderPlacement();
-  });
-
-  ownGrid.addEventListener('click', function (e) {
-    if (!placement || placement.currentIdx >= FLEET.length) return;
-    const cell = e.target.closest('.bcell');
-    if (!cell) return;
-    placeCurrentShip(Number(cell.dataset.i));
-  });
-
-  $('btn-rotate').addEventListener('click', function () {
-    if (!placement) return;
-    placement.direction = placement.direction === 'h' ? 'v' : 'h';
-    $('btn-rotate').textContent = placement.direction === 'h' ? '→ Horiz.' : '↓ Vert.';
-    previewIndex = -1;
-    renderPlacement();
-    if (navigator.vibrate) navigator.vibrate(6);
-  });
-
-  // Bouton Prêt : correction du blocage
-  $('btn-ready').addEventListener('click', function () {
-    if (!placement) return;
-    if (placement.currentIdx < FLEET.length) return;
-
-    const shipsMap = shipsToMap(placement.ships);
-    if (myRole === 'host') {
-      state.hostShips = shipsMap;
-      state.hostReady = true;
-      if (state.guestReady) {
-        state.phase = 'battle';
-        state.turn = 'host';
-      }
-    } else {
-      state.guestShips = shipsMap;
-      state.guestReady = true;
-      // L'invité envoie son état à l'hôte
-      send({ type: 'ready', ships: shipsMap });
-    }
-
-    $('btn-ready').disabled = true;
-    render();
-    // Si hôte, on informe immédiatement l'invité
-    if (myRole === 'host') send({ type: 'state', state: state });
-  });
-
-  enemyGrid.addEventListener('click', function (e) {
-    if (state.phase !== 'battle' || state.turn !== myRole) return;
-    const cell = e.target.closest('.bcell');
-    if (!cell) return;
-    const i = Number(cell.dataset.i);
-    const myShots = myRole === 'host' ? state.hostShots : state.guestShots;
-    if (myShots[i]) return;
-
-    if (myRole === 'host') {
-      const hit = state.guestShips && state.guestShips[i];
-      state.hostShots[i] = hit ? 'hit' : 'miss';
-      if (hit && isFleetDestroyed(state.guestShips, state.hostShots)) {
-        state.phase = 'over'; state.winner = 'host'; state.scores.host++;
-      } else state.turn = 'guest';
-      send({ type: 'state', state: state });
-      render();
-    } else {
-      send({ type: 'fire', index: i });
-    }
-  });
-
-  function isFleetDestroyed(shipMap, shots) {
-    if (!shipMap) return false;
-    for (const k in shipMap) if (!shots[k]) return false;
-    return true;
-  }
-
+  // ----- Réseau -----
   function send(msg) {
     if (conn && conn.open) {
       try { conn.send(msg); } catch (e) { console.warn(e); }
@@ -469,8 +405,9 @@
     if (!msg || typeof msg !== 'object') return;
 
     if (myRole === 'host') {
-      if (msg.type === 'hello') send({ type: 'state', state: state });
-      else if (msg.type === 'ready') {
+      if (msg.type === 'hello') {
+        send({ type: 'state', state: state });
+      } else if (msg.type === 'ready') {
         state.guestShips = msg.ships;
         state.guestReady = true;
         if (state.hostReady) {
@@ -486,8 +423,12 @@
         const hit = state.hostShips && state.hostShips[i];
         state.guestShots[i] = hit ? 'hit' : 'miss';
         if (hit && isFleetDestroyed(state.hostShips, state.guestShots)) {
-          state.phase = 'over'; state.winner = 'guest'; state.scores.guest++;
-        } else state.turn = 'host';
+          state.phase = 'over';
+          state.winner = 'guest';
+          state.scores.guest++;
+        } else {
+          state.turn = 'host';
+        }
         send({ type: 'state', state: state });
         render();
       } else if (msg.type === 'restart') {
@@ -498,8 +439,10 @@
         $('btn-ready').disabled = true;
         $('btn-rotate').textContent = '→ Horiz.';
         opponentLeft = false;
+        previewIndex = -1;
         send({ type: 'state', state: state });
-        render(); renderPlacement();
+        render();
+        renderPlacement();
       }
     } else {
       if (msg.type === 'state' && msg.state) {
@@ -513,8 +456,16 @@
     }
   }
 
+  function isFleetDestroyed(shipMap, shots) {
+    if (!shipMap) return false;
+    for (const k in shipMap) if (!shots[k]) return false;
+    return true;
+  }
+
   function onPeerGone() {
-    conn = null; opponentLeft = true; render();
+    conn = null;
+    opponentLeft = true;
+    render();
   }
 
   function onIncoming(c) {
@@ -522,4 +473,75 @@
     conn = c;
     conn.on('open', function () {
       myRole = 'host';
-      sta
+      state = freshState();
+      placement = newPlacement();
+      opponentLeft = false;
+      previewIndex = -1;
+      $('btn-ready').disabled = true;
+      $('btn-rotate').textContent = '→ Horiz.';
+      showScreen('game');
+      render();
+      renderPlacement();
+      send({ type: 'state', state: state });
+    });
+    conn.on('data', onData);
+    conn.on('close', onPeerGone);
+    conn.on('error', function (e) { console.warn(e); });
+  }
+
+  function randomCode() {
+    let s = '';
+    for (let i = 0; i < 4; i++) s += LETTERS[Math.floor(Math.random() * LETTERS.length)];
+    return s;
+  }
+
+  function createRoom() {
+    showScreen('wait');
+    $('wait-title').textContent = 'Code de la partie';
+    $('wait-sub').textContent = "Donne ce code à ton adversaire";
+    $('room-code').textContent = '····';
+    $('wait-status').textContent = 'Connexion au serveur…';
+
+    let attempt = 0;
+    (function tryCreate() {
+      attempt++;
+      if (attempt > 6) {
+        $('wait-status').textContent = 'Connexion impossible.';
+        return;
+      }
+      const code = randomCode();
+      let p;
+      try {
+        p = new Peer(PEER_PREFIX + code, { debug: 0, config: ICE });
+      } catch (e) {
+        $('wait-status').textContent = 'Erreur de connexion au serveur.';
+        return;
+      }
+      let opened = false, dead = false;
+      p.on('open', function () {
+        if (dead) return;
+        opened = true;
+        peer = p;
+        $('room-code').textContent = code.toUpperCase();
+        $('wait-status').textContent = "En attente de l'adversaire…";
+        p.on('connection', onIncoming);
+      });
+      p.on('error', function (err) {
+        if (opened || dead) { console.warn('Peer error:', err); return; }
+        dead = true;
+        try { p.destroy(); } catch (e) {}
+        setTimeout(tryCreate, 400);
+      });
+      setTimeout(function () {
+        if (!opened && !dead) {
+          dead = true;
+          $('wait-status').textContent = 'Le serveur ne répond pas. Réessaie.';
+        }
+      }, 12000);
+    })();
+  }
+
+  function joinRoom(rawCode) {
+    const code = String(rawCode || '').trim().toLowerCase();
+    if (code.length !== 4) {
+    
